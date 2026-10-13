@@ -222,7 +222,7 @@ all.
 - below the **manual-review threshold** → risk flag → `PendingManualReview` (FR-5.3.4).
 
 **Trade-off:** a reviewer can't choose a photo to get a particular score. We address this by bundling sample
-photos in [`samples/`](samples/README.md): one per outcome (approve, review, low quality, too small,
+photos in [`samples/`](../samples/README.md): one per outcome (approve, review, low quality, too small,
 unsupported type), each failing for exactly one reason. `samples/generate.cs` draws them and varies an
 invisible PNG comment until the score lands well inside the wanted range, so they can be regenerated if the
 thresholds change. The integration tests (D-16) submit them, so the documented outcomes are checked.
@@ -459,7 +459,7 @@ HTTP to use cases.
 
 **Choice:** `Docker/docker-compose.yml` (project name `scytales`), included by a root `compose.yaml`, so
 `docker compose up -d` works from the repository root. Setup instructions for reviewers are in
-[`INSTRUCTIONS.md`](INSTRUCTIONS.md).
+[`INSTRUCTIONS.md`](../INSTRUCTIONS.md).
 
 - **Services use the brief's names:** `api`, `worker`, `database` (postgres:17-alpine), `queue`
   (rabbitmq:4-management-alpine). Database and queue keep their data in named volumes.

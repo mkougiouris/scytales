@@ -73,15 +73,9 @@ any JPEG or PNG of at least 10 KB.
 
 ```bash
 curl -X POST http://localhost:5080/api/applications \
-  -F firstName=John \
-  -F lastName=Doe \
-  -F dateOfBirth=1990-05-20 \
-  -F nationalId=AB123456 \
-  -F email=john.doe@example.com \
-  -F phoneNumber=+306900000000 \
-  -F "address=Example Street 10" \
-  -F licenceCategory=B \
-  -F "photo=@samples/approve.png;type=image/png"
+  -F firstName=John -F lastName=Doe -F dateOfBirth=1990-05-20 -F nationalId=AB123456 \
+  -F email=john.doe@example.com -F phoneNumber=+306900000000 -F "address=Example Street 10" \
+  -F licenceCategory=B -F "photo=@samples/approve.png;type=image/png"
 ```
 
 The API answers immediately with `202 Accepted`; the workflow runs in the worker:
@@ -113,10 +107,9 @@ The checks are simulated; these inputs trigger each path:
 | **PendingManualReview** | any one of: age 18–20 · a category other than `B` (e.g. `A`) · national ID `XX000000` (on the watchlist) · a photo with a quality score between 30 and 59 (`samples/manual-review.png`) |
 | **Failed** | any one of: no photo · an invalid email · a missing field · age under 18 · a non-JPEG/PNG file (`samples/fail-unsupported-type.bmp`) · a file under 10 KB (`samples/fail-too-small.png`) · a quality score below 30 (`samples/fail-low-quality.png`) |
 
-The photo quality score (0–100) is simulated deterministically from the file's content: the same file always
-gets the same score, and a different file gets an unrelated one. Your own photo can therefore land in any bucket;
-the samples have known scores (see [`samples/README.md`](samples/README.md)). The history's `details` field
-explains every review or failure, for example `"National ID is on the watchlist"`.
+The quality score (0–100) is derived from the file's bytes: the same file always gets the same score, but your
+own photo can land in any bucket, so the samples have known scores ([`samples/README.md`](samples/README.md)).
+The history's `details` explain every review or failure, e.g. `"National ID is on the watchlist"`.
 
 ### 4.4 Decide a manual review
 
@@ -224,21 +217,14 @@ The dashboard keeps telemetry **in memory**: restarting the container clears it.
 
 ### 7.2 How it is set up
 
-| Piece | Where | What it does |
-|---|---|---|
-| `AddObservability(serviceName)` | `App/Hosts/Scytales.Hosting/Observability.cs` | Shared by both hosts (`scytales-api`, `scytales-worker`). Registers tracing (ASP.NET Core, MassTransit, Npgsql, workflow steps), metrics (ASP.NET Core, runtime, MassTransit, Npgsql) and the OpenTelemetry logging provider. The JSON console logs stay as they are. |
-| OTLP exporter | same file | Switched on **only** when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. Without it nothing is exported, so the tests and a plain `dotnet run` need no collector. |
-| Workflow step spans | `App/Scytales.Application/WorkflowTelemetry.cs` | An `ActivitySource` named `Scytales.Workflow`, from the BCL: the Application layer has no OpenTelemetry dependency. |
-| Database span filter | `App/Scytales.Infrastructure/Persistence/ScytalesDbContext.cs` | Npgsql only traces commands that run inside another span. Otherwise the outbox poller and the health checks would fill the dashboard with lone queries. Connection opens aren't traced. Health-check requests are left out of the HTTP traces for the same reason. |
-| `dashboard` service | `Docker/docker-compose.yml` | `mcr.microsoft.com/dotnet/aspire-dashboard`, anonymous access. UI on 18888, OTLP/gRPC on 18889 inside the network (published as 4317). |
-| Host settings | `Docker/docker-compose.yml` (`x-host-environment`) | `OTEL_EXPORTER_OTLP_ENDPOINT=http://dashboard:18889` and `OTEL_EXPORTER_OTLP_PROTOCOL=grpc`. In `Development`, `appsettings.Development.json` points at `http://localhost:4317`. |
+`AddObservability()` in `App/Hosts/Scytales.Hosting/Observability.cs` configures both hosts. The exporter only
+switches on when `OTEL_EXPORTER_OTLP_ENDPOINT` is set: Compose points it at `http://dashboard:18889`, and the
+`Development` settings at the published `localhost:4317`. Tests export nothing. The design, including how lone
+background queries are kept out of the traces, is in
+[D-18](docs/implementation-steps.md#d-18--observability-opentelemetry-to-the-aspire-dashboard-bn-5).
 
-### 7.3 Sending the telemetry elsewhere
-
-Any OTLP-compatible backend works (Jaeger, Grafana Tempo/Loki, Seq, an OpenTelemetry Collector, a cloud
-APM). Point `OTEL_EXPORTER_OTLP_ENDPOINT` (and `OTEL_EXPORTER_OTLP_PROTOCOL` if it uses `http/protobuf`) at it in
-the `x-host-environment` block. To switch telemetry export off, remove `OTEL_EXPORTER_OTLP_ENDPOINT`. The
-standard `OTEL_*` variables, such as `OTEL_RESOURCE_ATTRIBUTES`, are honoured as well.
+To send telemetry elsewhere (Jaeger, Seq, Grafana, a collector), point `OTEL_EXPORTER_OTLP_ENDPOINT` at it in the
+`x-host-environment` block of `Docker/docker-compose.yml`. Remove the variable to switch export off.
 
 ---
 
