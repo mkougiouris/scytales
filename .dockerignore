@@ -1,0 +1,11 @@
+# Build context is the repository root; the images only need global.json and App/.
+**/bin/
+**/obj/
+**/TestResults/
+**/.vs/
+**/.idea/
+**/*.user
+Tests/
+Docker/
+*.md
+*.pdf

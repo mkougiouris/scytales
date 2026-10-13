@@ -1,0 +1,17 @@
+# Build output
+**/bin/
+**/obj/
+**/TestResults/
+
+# IDE and user files
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+
+# Local overrides (see INSTRUCTIONS.md §6)
+.env
+
+# The assignment brief belongs to Scytales; requirements.md restates it.
+*.pdf

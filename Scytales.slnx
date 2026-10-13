@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/App/">
+    <Project Path="App/Scytales.Application/Scytales.Application.csproj" />
+    <Project Path="App/Scytales.Domain/Scytales.Domain.csproj" />
+    <Project Path="App/Scytales.Infrastructure/Scytales.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/App/Hosts/">
+    <Project Path="App/Hosts/Scytales.Api/Scytales.Api.csproj" />
+    <Project Path="App/Hosts/Scytales.Hosting/Scytales.Hosting.csproj" />
+    <Project Path="App/Hosts/Scytales.Worker/Scytales.Worker.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/Scytales.Application.Tests/Scytales.Application.Tests.csproj" />
+    <Project Path="Tests/Scytales.Domain.Tests/Scytales.Domain.Tests.csproj" />
+    <Project Path="Tests/Scytales.Infrastructure.Tests/Scytales.Infrastructure.Tests.csproj" />
+    <Project Path="Tests/Scytales.Integration.Tests/Scytales.Integration.Tests.csproj" />
+  </Folder>
+</Solution>

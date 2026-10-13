@@ -1,0 +1,12 @@
+# Normalise line endings in the repository; check out with the platform's own.
+* text=auto
+
+# Shell-adjacent files run inside Linux containers: always LF.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Binary samples.
+*.png binary
+*.bmp binary

@@ -1,0 +1,118 @@
+# The whole system: `docker compose up` from the repository root (compose.yaml includes this file),
+# or `docker compose -f Docker/docker-compose.yml up` from anywhere.
+#
+# Service names follow the brief: api, worker, database, queue; plus dashboard, the telemetry viewer (D-18).
+# Every value below has a default; override any of them with environment variables or a .env file.
+
+name: scytales
+
+x-database-credentials: &database-credentials
+  POSTGRES_DB: ${POSTGRES_DB:-scytales}
+  POSTGRES_USER: ${POSTGRES_USER:-scytales}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-scytales}
+
+# Shared by api and worker. ASP.NET Core maps `__` to the `:` configuration separator.
+x-host-environment: &host-environment
+  ConnectionStrings__Postgres: Host=database;Port=5432;Database=${POSTGRES_DB:-scytales};Username=${POSTGRES_USER:-scytales};Password=${POSTGRES_PASSWORD:-scytales}
+  ConnectionStrings__RabbitMq: amqp://${RABBITMQ_USER:-scytales}:${RABBITMQ_PASSWORD:-scytales}@queue:5672/
+  # OpenTelemetry (D-18): traces, metrics and logs go to the dashboard over OTLP/gRPC.
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://dashboard:18889
+  OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+
+x-host-build: &host-build
+  context: ..
+  dockerfile: Docker/Dockerfile
+
+services:
+  database:
+    image: postgres:17-alpine
+    environment: *database-credentials
+    ports:
+      - "${DATABASE_PORT:-5432}:5432"
+    volumes:
+      - database-data:/var/lib/postgresql/data
+    healthcheck:
+      # Over TCP on purpose: on first start the image runs a temporary, socket-only server to initialise the
+      # database, then restarts it. A socket check would report that temporary server as ready.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  queue:
+    image: rabbitmq:4-management-alpine
+    # The node name (rabbit@<hostname>) must stay stable for the data volume to be reusable.
+    hostname: queue
+    environment:
+      # `guest` may only connect from localhost, so the hosts need a user of their own.
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-scytales}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-scytales}
+      # The Erlang cookie is passed as an argument rather than read from .erlang.cookie, which some
+      # Docker Desktop setups make unreadable (the node then crashes with `eacces`). The CLI tools,
+      # the health check included, need the same cookie.
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -setcookie ${RABBITMQ_ERLANG_COOKIE:-scytales-local-cookie}
+      RABBITMQ_CTL_ERL_ARGS: -setcookie ${RABBITMQ_ERLANG_COOKIE:-scytales-local-cookie}
+    ports:
+      - "${QUEUE_PORT:-5672}:5672"
+      - "${QUEUE_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - queue-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 10s
+
+  # Telemetry viewer (D-18): the standalone .NET Aspire Dashboard, an OTLP endpoint with a UI for traces,
+  # metrics and structured logs. Telemetry is kept in memory, so it is gone when the container restarts.
+  dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:13.6
+    environment:
+      # A local development tool: no login, and the OTLP endpoint accepts telemetry without an API key.
+      ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
+    ports:
+      - "${DASHBOARD_PORT:-18888}:18888"
+      # OTLP/gRPC, for hosts run from an IDE (their Development settings point here).
+      - "${DASHBOARD_OTLP_PORT:-4317}:18889"
+
+  api:
+    build:
+      <<: *host-build
+      target: api
+    image: scytales-api
+    environment: *host-environment
+    ports:
+      - "${API_PORT:-5080}:8080"
+    depends_on:
+      dashboard:
+        condition: service_started
+      database:
+        condition: service_healthy
+      queue:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      <<: *host-build
+      target: worker
+    image: scytales-worker
+    environment: *host-environment
+    ports:
+      - "${WORKER_PORT:-5081}:8080"
+    depends_on:
+      dashboard:
+        condition: service_started
+      # The api applies the migrations (D-13); the worker starts once the schema exists.
+      api:
+        condition: service_healthy
+      database:
+        condition: service_healthy
+      queue:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  database-data:
+  queue-data:

@@ -1,0 +1,5 @@
+# Entry point for `docker compose up` at the repository root. The definition lives in Docker/.
+name: scytales
+
+include:
+  - Docker/docker-compose.yml

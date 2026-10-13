@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="Shouldly" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Both hosts declare a top-level Program in the global namespace; the aliases tell them apart. -->
+    <ProjectReference Include="..\..\App\Hosts\Scytales.Api\Scytales.Api.csproj" Aliases="api" />
+    <ProjectReference Include="..\..\App\Hosts\Scytales.Worker\Scytales.Worker.csproj" Aliases="worker" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The reviewer samples double as test data, so the tests also check what samples/README.md promises. -->
+    <None Include="..\..\samples\*.png;..\..\samples\*.bmp" Link="samples\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageReference Include="Shouldly" Version="4.3.0" />
+    <PackageReference Include="Testcontainers.PostgreSql" Version="4.16.0" />
+    <PackageReference Include="Testcontainers.RabbitMq" Version="4.16.0" />
+    <PackageReference Include="xunit.v3" Version="4.0.2" />
+  </ItemGroup>
+
+</Project>
